@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"os"
 	"sort"
 	"strings"
@@ -20,7 +21,7 @@ const pokemonURL = pokedexURL + "pokemon/"
 type cliCommands struct {
 	name		string
 	description string
-	callback 	func(conf *Config, cache *pokeCache.Cache, arg string) error
+	callback 	func(conf *Config, cache *pokeCache.Cache, arg string, pokedex map[string]int) error
 }
 
 type Config struct {
@@ -34,8 +35,8 @@ func main() {
 		next: locationAreaURL,
 	}
 	reader := bufio.NewScanner(os.Stdin)
-
 	cache := pokeCache.NewCache(5 * time.Second)
+	pokedex := make(map[string]int)
 
 	for {
 		fmt.Print("Pokedex > ")
@@ -53,12 +54,12 @@ func main() {
 		}
 
 		if command, ok := getCommands()[commandName]; ok {
-			err := command.callback(&config, cache, commandArg) 
+			err := command.callback(&config, cache, commandArg, pokedex) 
 			if err != nil {
-				fmt.Errorf("error executing command '%s': %v\n", commandName, err)
+				fmt.Printf("error executing command '%s': %v\n", commandName, err)
 			}
 		} else {
-			fmt.Errorf("unknown command '%s'. Type 'help' for a list of commands.\n", commandName)
+			fmt.Printf("unknown command '%s'. Type 'help' for a list of commands.\n", commandName)
 		}
 	}
 }
@@ -102,13 +103,13 @@ func getCommands() map[string]cliCommands {
 	}
 }
 
-func commandExit(conf *Config, cache *pokeCache.Cache, arg string) error {
+func commandExit(conf *Config, cache *pokeCache.Cache, arg string, pokedex map[string]int) error {
 	fmt.Println("Exiting Pokedex... Bye bye!")
 	os.Exit(0)
 	return nil
 }
 
-func commandHelp(conf *Config, cache *pokeCache.Cache, arg string) error {
+func commandHelp(conf *Config, cache *pokeCache.Cache, arg string, pokedex map[string]int) error {
 	fmt.Println("Available commands:")
 	commands := getCommands()
 
@@ -127,7 +128,7 @@ func commandHelp(conf *Config, cache *pokeCache.Cache, arg string) error {
 	return nil
 }
 
-func commandMap(conf *Config, cache *pokeCache.Cache, arg string) error {
+func commandMap(conf *Config, cache *pokeCache.Cache, arg string, pokedex map[string]int) error {
 	if conf.next == "" {
 		fmt.Println("You are on the last page")
 		return nil
@@ -175,7 +176,7 @@ func commandMap(conf *Config, cache *pokeCache.Cache, arg string) error {
 	return nil
 }
 
-func commandMapBack(conf *Config, cache *pokeCache.Cache, arg string) error {
+func commandMapBack(conf *Config, cache *pokeCache.Cache, arg string, pokedex map[string]int) error {
 	if conf.prev == "" {
 		fmt.Println("you are on the first page")
 		return nil
@@ -220,7 +221,7 @@ func commandMapBack(conf *Config, cache *pokeCache.Cache, arg string) error {
 	return nil
 }
 
-func commandExplore(conf *Config, cache *pokeCache.Cache, arg string) error {
+func commandExplore(conf *Config, cache *pokeCache.Cache, arg string, pokedex map[string]int) error {
 	if arg == "" {
 		return fmt.Errorf("an area name must be provided")
 	}
@@ -261,7 +262,7 @@ func commandExplore(conf *Config, cache *pokeCache.Cache, arg string) error {
 	return nil
 }
 
-func commandCatch(conf *Config, cache *pokeCache.Cache, arg string) error {
+func commandCatch(conf *Config, cache *pokeCache.Cache, arg string, pokedex map[string]int) error {
 	if arg == "" {
 		return fmt.Errorf("a Pokemon name must be provided")
 	}
@@ -290,6 +291,19 @@ func commandCatch(conf *Config, cache *pokeCache.Cache, arg string) error {
 		cache.Add(urlToFetch, dataForCacheBytes)
 	}
 
-	fmt.Println("Caught Pokemon: ", pokemonData.Name)
+	fmt.Printf("Throwing a Pokeball at %s...\n", pokemonName)
+
+	// Simulate a random catch attempt based on the Pokemon's base experience.
+	attemptValue := rand.Intn(pokemonData.BaseExperience + 1)
+
+	const successThreshold = 40 
+
+	if attemptValue < successThreshold {
+		fmt.Printf("%s was caught!\n", pokemonData.Name)
+		pokedex[pokemonData.Name]++
+	} else {
+		fmt.Printf("%s escaped!\n", pokemonData.Name)
+	}
+
 	return nil
 }
