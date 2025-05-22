@@ -63,6 +63,11 @@ type LocationAreaDetail struct {
 	PokemonEncounters		[]PokemonEncounter		`json:"pokemon_encounters"`
 }
 
+type PokemonDetail struct {
+	BaseExperience		int		`json:"base_experience"`
+	Name				string	`json:"name"`
+}
+
 func GetMap(url string) ([]APIResource, string, string, error) {
 	if url == "" {
 		return nil, "", "", fmt.Errorf("url is empty")
@@ -131,4 +136,33 @@ func GetExploreArea(url string) ([]string, error) {
 	}
 
 	return pokemonNames, nil
+}
+
+func GetPokemonInfo(url string) (PokemonDetail, error) {
+		if url == "" {
+		return PokemonDetail{}, fmt.Errorf("url is empty")
+	}
+
+	res, err := http.Get(url)
+	if err != nil {
+		return PokemonDetail{}, fmt.Errorf("error fetching data: %v", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return PokemonDetail{}, fmt.Errorf("error: received status code %d", res.StatusCode)
+	}
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return PokemonDetail{}, fmt.Errorf("error reading response body: %v", err)
+	}
+
+	var pokemonDetails PokemonDetail
+
+	err = json.Unmarshal(body, &pokemonDetails)
+	if err != nil {
+		return PokemonDetail{}, fmt.Errorf("error unmarshalling JSON: %v", err)
+	}
+	return pokemonDetails, nil
 }

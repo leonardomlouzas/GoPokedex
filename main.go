@@ -15,6 +15,7 @@ import (
 
 const pokedexURL = "https://pokeapi.co/api/v2/"
 const locationAreaURL = pokedexURL + "location-area/"
+const pokemonURL = pokedexURL + "pokemon/"
 
 type cliCommands struct {
 	name		string
@@ -54,10 +55,10 @@ func main() {
 		if command, ok := getCommands()[commandName]; ok {
 			err := command.callback(&config, cache, commandArg) 
 			if err != nil {
-				fmt.Printf("Error executing command '%s': %v\n", commandName, err)
+				fmt.Errorf("error executing command '%s': %v\n", commandName, err)
 			}
 		} else {
-			fmt.Printf("Unknown command '%s'. Type 'help' for a list of commands.\n", commandName)
+			fmt.Errorf("unknown command '%s'. Type 'help' for a list of commands.\n", commandName)
 		}
 	}
 }
@@ -92,6 +93,11 @@ func getCommands() map[string]cliCommands {
 			name:			"Explore",
 			description:	"Explore a specific area in a map area.\nUsage: explore <area_name>",
 			callback:		commandExplore,
+		},
+		"catch": {
+			name:			"Catch",
+			description:	"Catch a Pokemon.\nUsage: catch <pokemon_name>",
+			callback:		commandCatch,
 		},
 	}
 }
@@ -171,7 +177,7 @@ func commandMap(conf *Config, cache *pokeCache.Cache, arg string) error {
 
 func commandMapBack(conf *Config, cache *pokeCache.Cache, arg string) error {
 	if conf.prev == "" {
-		fmt.Println("You are on the first page")
+		fmt.Println("you are on the first page")
 		return nil
 	}
 
@@ -216,11 +222,11 @@ func commandMapBack(conf *Config, cache *pokeCache.Cache, arg string) error {
 
 func commandExplore(conf *Config, cache *pokeCache.Cache, arg string) error {
 	if arg == "" {
-		return fmt.Errorf("An area name must be provided.")
+		return fmt.Errorf("an area name must be provided")
 	}
 
 	urlToFetch := locationAreaURL + arg
-	fmt.Println("Exploring area:", arg)
+	fmt.Println("Exploring area: ", arg)
 	
 	var results []string
 
@@ -244,7 +250,7 @@ func commandExplore(conf *Config, cache *pokeCache.Cache, arg string) error {
 	}
 
 	if len(results) == 0 {
-		fmt.Println("No Pokemon found in this area.")
+		fmt.Println("no Pokemon found in this area")
 	} else {
 		fmt.Println("Found pokemon:")
 		for _, name := range results {
@@ -252,5 +258,38 @@ func commandExplore(conf *Config, cache *pokeCache.Cache, arg string) error {
 		}
 	}
 
+	return nil
+}
+
+func commandCatch(conf *Config, cache *pokeCache.Cache, arg string) error {
+	if arg == "" {
+		return fmt.Errorf("a Pokemon name must be provided")
+	}
+
+	pokemonName := strings.ToLower(arg)
+	urlToFetch := pokemonURL + pokemonName
+	var pokemonData pokeClient.PokemonDetail
+
+	if cachedData, ok := cache.Get(urlToFetch); ok {
+		err := json.Unmarshal(cachedData, &pokemonData)
+		if err != nil {
+			return fmt.Errorf("error unmarshalling cached data: %v", err)
+		}
+	} else {
+		pokemon, err := pokeClient.GetPokemonInfo(urlToFetch)
+		if err != nil {
+			return fmt.Errorf("error fetching Pokemon data: %v", err)
+		}
+
+		pokemonData = pokemon
+		dataForCacheBytes, err := json.Marshal(pokemonData)
+		if err != nil {
+			return fmt.Errorf("error marshalling data for cache: %v", err)
+		}
+
+		cache.Add(urlToFetch, dataForCacheBytes)
+	}
+
+	fmt.Println("Caught Pokemon: ", pokemonData.Name)
 	return nil
 }
