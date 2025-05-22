@@ -19,48 +19,12 @@ type MapResponse struct {
 	Results		[]APIResource	`json:"results"`
 }
 
-type EncounterVersionDetail struct {
-	Rate		int				`json:"rate"`
-	Version		APIResource		`json:"version"`
+type minPokemonEncounter struct {
+	Pokemon APIResource `json:"pokemon"`
 }
 
-type EncounterMethodRate struct {
-	EncounterMethod		APIResource					`json:"encounter_method"`
-	VersionDetails		[]EncounterVersionDetail	`json:"version_details"`
-}
-
-type NameEntry struct {
-	Language	APIResource		`json:"language"`
-	Name		string			`json:"name"`
-}
-
-type EncounterDetail struct {
-	Chance		int				`json:"chance"`
-	Condition	[]APIResource	`json:"condition_values"`
-	MaxLevel	int				`json:"max_level"`
-	Method		APIResource		`json:"method"`
-	MinLevel	int				`json:"min_level"`
-}
-
-type PokemonEncounterVersionDetail struct {
-	EncounterDetails	[]EncounterDetail	`json:"encounter_details"`
-	MaxChance			int					`json:"max_chance"`
-	Version				APIResource			`json:"version"`
-}
-
-type PokemonEncounter struct {
-	Pokemon				APIResource						`json:"pokemon"`
-	VersionDetails		[]PokemonEncounterVersionDetail	`json:"version_details"`
-}
-
-type LocationAreaDetail struct {
-	EncounterMethodRates	[]EncounterMethodRate	`json:"encounter_method_rates"`
-	GameIndex				int						`json:"game_index"`
-	ID						int						`json:"id"`
-	Location				APIResource				`json:"location"`
-	Name					string					`json:"name"`
-	Names					[]NameEntry				`json:"names"`
-	PokemonEncounters		[]PokemonEncounter		`json:"pokemon_encounters"`
+type minExploreAreaResponse struct {
+	PokemonEncounters []minPokemonEncounter `json:"pokemon_encounters"`
 }
 
 type PokemonDetail struct {
@@ -117,7 +81,7 @@ func GetExploreArea(url string) ([]string, error) {
 		return nil, fmt.Errorf("error reading response body: %v", err)
 	}
 
-	var response LocationAreaDetail
+	var response minExploreAreaResponse
 	err = json.Unmarshal(body, &response)
 	if err != nil {
 		return nil, fmt.Errorf("error unmarshalling JSON: %v", err)
