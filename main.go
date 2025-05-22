@@ -5,19 +5,21 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
-	pokecache "github.com/leonardomlouzas/GoPokedex/internal/pokeCache"
-	pokeclient "github.com/leonardomlouzas/GoPokedex/internal/pokeClient"
+	"github.com/leonardomlouzas/GoPokedex/internal/pokeCache"
+	"github.com/leonardomlouzas/GoPokedex/internal/pokeClient"
 )
 
 const pokedexURL = "https://pokeapi.co/api/v2/"
+const locationAreaURL = pokedexURL + "location-area/"
 
 type cliCommands struct {
 	name		string
 	description string
-	callback 	func(conf *Config, cache *pokecache.Cache) error
+	callback 	func(conf *Config, cache *pokeCache.Cache, arg string) error
 }
 
 type Config struct {
@@ -28,11 +30,11 @@ type Config struct {
 func main() {
 	config := Config{
 		prev: "",
-		next: pokedexURL + "location-area/",
+		next: locationAreaURL,
 	}
 	reader := bufio.NewScanner(os.Stdin)
 
-	cache := pokecache.NewCache(5 * time.Second)
+	cache := pokeCache.NewCache(5 * time.Second)
 
 	for {
 		fmt.Print("Pokedex > ")
@@ -43,9 +45,14 @@ func main() {
 			continue
 		}
 
+		var commandArg string 
 		commandName := words[0]
+		if len(words) > 1 {
+			commandArg = words[1]
+		}
+
 		if command, ok := getCommands()[commandName]; ok {
-			err := command.callback(&config, cache)
+			err := command.callback(&config, cache, commandArg) 
 			if err != nil {
 				fmt.Printf("Error executing command '%s': %v\n", commandName, err)
 			}
@@ -81,25 +88,40 @@ func getCommands() map[string]cliCommands {
 			description:	"Page backward in the Pokedex areas.",
 			callback:		commandMapBack,
 		},
+		"explore": {
+			name:			"Explore",
+			description:	"Explore a specific area in a map area.\nUsage: explore <area_name>",
+			callback:		commandExplore,
+		},
 	}
 }
 
-func commandExit(conf *Config, cache *pokecache.Cache) error {
+func commandExit(conf *Config, cache *pokeCache.Cache, arg string) error {
 	fmt.Println("Exiting Pokedex... Bye bye!")
 	os.Exit(0)
 	return nil
 }
 
-func commandHelp(conf *Config, cache *pokecache.Cache) error {
+func commandHelp(conf *Config, cache *pokeCache.Cache, arg string) error {
 	fmt.Println("Available commands:")
-	for _, command := range getCommands() {
-		fmt.Println("-----> " + command.name)
-		fmt.Println(command.description)
+	commands := getCommands()
+
+	commandNames := make([]string, 0, len(commands))
+	for name := range commands {
+		commandNames = append(commandNames, name)
+	}
+
+	// Sort the command names alphabetically
+	sort.Strings(commandNames)
+
+	for _, name := range commandNames {
+		fmt.Println("-----> " + commands[name].name)
+		fmt.Println(commands[name].description)
 	}
 	return nil
 }
 
-func commandMap(conf *Config, cache *pokecache.Cache) error {
+func commandMap(conf *Config, cache *pokeCache.Cache, arg string) error {
 	if conf.next == "" {
 		fmt.Println("You are on the last page")
 		return nil
@@ -107,9 +129,9 @@ func commandMap(conf *Config, cache *pokecache.Cache) error {
 
 	urlToFetch := conf.next
 
-	var results []pokeclient.Results
+	var results []pokeClient.APIResource
 	if cachedData, ok := cache.Get(urlToFetch); ok {
-		var cachedResponse pokeclient.Response
+		var cachedResponse pokeClient.MapResponse
 		err := json.Unmarshal(cachedData, &cachedResponse)
 		if err != nil {
 			return fmt.Errorf("error unmarshalling cached data: %v", err)
@@ -119,7 +141,7 @@ func commandMap(conf *Config, cache *pokecache.Cache) error {
 		conf.prev = cachedResponse.Previous
 		conf.next = cachedResponse.Next
 	} else {
-		apiResults, apiPrev, apiNext, err := pokeclient.GetMap(urlToFetch)
+		apiResults, apiPrev, apiNext, err := pokeClient.GetMap(urlToFetch)
 		if err != nil {
 			return fmt.Errorf("error fetching map data: %v", err)
 		}
@@ -128,7 +150,7 @@ func commandMap(conf *Config, cache *pokecache.Cache) error {
 		conf.prev = apiPrev
 		conf.next = apiNext
 
-		responseToCache := pokeclient.Response{
+		responseToCache := pokeClient.MapResponse{
 			Results:  apiResults,
 			Previous: apiPrev,
 			Next:     apiNext,
@@ -147,7 +169,7 @@ func commandMap(conf *Config, cache *pokecache.Cache) error {
 	return nil
 }
 
-func commandMapBack(conf *Config, cache *pokecache.Cache) error {
+func commandMapBack(conf *Config, cache *pokeCache.Cache, arg string) error {
 	if conf.prev == "" {
 		fmt.Println("You are on the first page")
 		return nil
@@ -155,10 +177,10 @@ func commandMapBack(conf *Config, cache *pokecache.Cache) error {
 
 	urlToFetch := conf.prev
 
-	var results []pokeclient.Results
+	var results []pokeClient.APIResource
 
 	if cachedData, ok := cache.Get(urlToFetch); ok {
-		var cachedResponse pokeclient.Response
+		var cachedResponse pokeClient.MapResponse
 		err := json.Unmarshal(cachedData, &cachedResponse)
 		if err != nil {
 			return fmt.Errorf("error unmarshalling cached data: %v", err)
@@ -168,7 +190,7 @@ func commandMapBack(conf *Config, cache *pokecache.Cache) error {
 		conf.prev = cachedResponse.Previous
 		conf.next = cachedResponse.Next
 	} else {
-		apiResults, apiPrev, apiNext, err := pokeclient.GetMap(urlToFetch)
+		apiResults, apiPrev, apiNext, err := pokeClient.GetMap(urlToFetch)
 		if err != nil {
 			return fmt.Errorf("error fetching map data: %v", err)
 		}
@@ -177,7 +199,7 @@ func commandMapBack(conf *Config, cache *pokecache.Cache) error {
 		conf.prev = apiPrev
 		conf.next = apiNext
 
-		responseToCache := pokeclient.Response{Results: apiResults, Previous: apiPrev, Next: apiNext}
+		responseToCache := pokeClient.MapResponse{Results: apiResults, Previous: apiPrev, Next: apiNext}
 		dataForCacheBytes, err := json.Marshal(responseToCache)
 		if err != nil {
 			return fmt.Errorf("error marshalling data for cache: %v", err)
@@ -189,5 +211,46 @@ func commandMapBack(conf *Config, cache *pokecache.Cache) error {
 	for _, result := range results {
 		fmt.Printf("Name: %s\n", result.Name)
 	}
+	return nil
+}
+
+func commandExplore(conf *Config, cache *pokeCache.Cache, arg string) error {
+	if arg == "" {
+		return fmt.Errorf("An area name must be provided.")
+	}
+
+	urlToFetch := locationAreaURL + arg
+	fmt.Println("Exploring area:", arg)
+	
+	var results []string
+
+	if cachedData, ok := cache.Get(urlToFetch); ok {
+		err := json.Unmarshal(cachedData, &results)
+		if err != nil {
+			return fmt.Errorf("error unmarshalling cached data: %v", err)
+		}
+	} else {
+		pokemonNames, err := pokeClient.GetExploreArea(urlToFetch)
+		if err != nil {
+			return fmt.Errorf("error fetching explore area data: %v", err)
+		}
+
+		results = pokemonNames
+		dataForCacheBytes, err := json.Marshal(results)
+		if err != nil {
+			return fmt.Errorf("error marshalling data for cache: %v", err)
+		}
+		cache.Add(urlToFetch, dataForCacheBytes)
+	}
+
+	if len(results) == 0 {
+		fmt.Println("No Pokemon found in this area.")
+	} else {
+		fmt.Println("Found pokemon:")
+		for _, name := range results {
+			fmt.Println("- " + name)
+		}
+	}
+
 	return nil
 }

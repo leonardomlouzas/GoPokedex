@@ -11,11 +11,11 @@ import (
 
 func TestGetMap(t *testing.T) {
 	t.Run("successful response", func(t *testing.T) {
-		expectedResponse := Response{
+		expectedResponse := MapResponse{
 			Count:    1,
 			Next:     "next_url",
 			Previous: "prev_url",
-			Results: []Results{
+			Results: []APIResource{
 				{Name: "location1", Url: "url1"},
 			},
 		}
