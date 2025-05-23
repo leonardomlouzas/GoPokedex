@@ -2,6 +2,10 @@ package main
 
 import (
 	"testing"
+	"time"
+
+	"github.com/leonardomlouzas/GoPokedex/internal/pokeCache"
+	"github.com/leonardomlouzas/GoPokedex/internal/pokeClient"
 )
 
 func TestCleanInput(t *testing.T) {
@@ -43,3 +47,36 @@ func TestCleanInput(t *testing.T) {
 	}
 }
 
+func TestCommandPokedex(t *testing.T) {
+	cache := pokeCache.NewCache(5 * time.Second)
+	config := Config{}
+
+	pokedex := make(map[string]pokeClient.PokemonDetail)
+	pokemonName := "pikachu"
+	pokemonDetail := pokeClient.PokemonDetail{
+		BaseExperience:	100,
+		Name:           "pikachu",
+		Height:         4,
+		Weight:         60,
+		Stats: []pokeClient.PokeStat{},
+		Types: []pokeClient.PokemonType{},
+	}
+	
+	// Expect the Pokedex to be empty
+	commandPokedex(&config, cache, pokemonName, pokedex)
+	if len(pokedex) != 0 {
+		t.Errorf("expected empty pokedex, got %v", pokedex)
+	}
+
+	// Add a Pokemon to the Pokedex
+	pokedex[pokemonName] = pokemonDetail
+	commandPokedex(&config, cache, pokemonName, pokedex)
+	if len(pokedex) != 1 {
+		t.Errorf("expected Pokedex with 1 Pokemon, got %v", pokedex)
+	}
+
+	// Check if the Pokemon is in the Pokedex
+	if _, ok := pokedex[pokemonName]; !ok {
+		t.Errorf("expected %s to be in pokedex, got %v", pokemonName, pokedex)
+	}
+}

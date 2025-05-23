@@ -105,6 +105,11 @@ func getCommands() map[string]cliCommands {
 			description:	"Inspect a Pokemon.\nUsage: inspect <pokemon_name>",
 			callback:		commandInspect,
 		},
+		"pokedex": {
+			name:			"Pokedex",
+			description:	"List all Pokemon in your Pokedex.",
+			callback:		commandPokedex,
+		},
 	}
 }
 
@@ -334,5 +339,18 @@ func commandInspect(conf *Config, cache *pokeCache.Cache, arg string, pokedex ma
 		fmt.Printf("Pokemon %s not found in your Pokedex\n", pokemonName)
 	}
 
+	return nil
+}
+
+func commandPokedex(conf *Config, cache *pokeCache.Cache, arg string, pokedex map[string]pokeClient.PokemonDetail) error {
+	if len(pokedex) == 0 {
+		fmt.Println("your Pokedex is empty")
+		return nil
+	}
+
+	fmt.Println("Your Pokedex:")
+	for name, _ := range pokedex {
+		fmt.Printf(" - %s\n", name)
+	}
 	return nil
 }
