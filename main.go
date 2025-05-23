@@ -21,7 +21,7 @@ const pokemonURL = pokedexURL + "pokemon/"
 type cliCommands struct {
 	name		string
 	description string
-	callback 	func(conf *Config, cache *pokeCache.Cache, arg string, pokedex map[string]int) error
+	callback 	func(conf *Config, cache *pokeCache.Cache, arg string, pokedex map[string]pokeClient.PokemonDetail) error
 }
 
 type Config struct {
@@ -36,7 +36,7 @@ func main() {
 	}
 	reader := bufio.NewScanner(os.Stdin)
 	cache := pokeCache.NewCache(5 * time.Second)
-	pokedex := make(map[string]int)
+	pokedex := make(map[string]pokeClient.PokemonDetail)
 
 	for {
 		fmt.Print("Pokedex > ")
@@ -100,16 +100,21 @@ func getCommands() map[string]cliCommands {
 			description:	"Catch a Pokemon.\nUsage: catch <pokemon_name>",
 			callback:		commandCatch,
 		},
+		"inspect": {
+			name:			"Inspect",
+			description:	"Inspect a Pokemon.\nUsage: inspect <pokemon_name>",
+			callback:		commandInspect,
+		},
 	}
 }
 
-func commandExit(conf *Config, cache *pokeCache.Cache, arg string, pokedex map[string]int) error {
+func commandExit(conf *Config, cache *pokeCache.Cache, arg string, pokedex map[string]pokeClient.PokemonDetail) error {
 	fmt.Println("Exiting Pokedex... Bye bye!")
 	os.Exit(0)
 	return nil
 }
 
-func commandHelp(conf *Config, cache *pokeCache.Cache, arg string, pokedex map[string]int) error {
+func commandHelp(conf *Config, cache *pokeCache.Cache, arg string, pokedex map[string]pokeClient.PokemonDetail) error {
 	fmt.Println("Available commands:")
 	commands := getCommands()
 
@@ -128,7 +133,7 @@ func commandHelp(conf *Config, cache *pokeCache.Cache, arg string, pokedex map[s
 	return nil
 }
 
-func commandMap(conf *Config, cache *pokeCache.Cache, arg string, pokedex map[string]int) error {
+func commandMap(conf *Config, cache *pokeCache.Cache, arg string, pokedex map[string]pokeClient.PokemonDetail) error {
 	if conf.next == "" {
 		fmt.Println("You are on the last page")
 		return nil
@@ -176,7 +181,7 @@ func commandMap(conf *Config, cache *pokeCache.Cache, arg string, pokedex map[st
 	return nil
 }
 
-func commandMapBack(conf *Config, cache *pokeCache.Cache, arg string, pokedex map[string]int) error {
+func commandMapBack(conf *Config, cache *pokeCache.Cache, arg string, pokedex map[string]pokeClient.PokemonDetail) error {
 	if conf.prev == "" {
 		fmt.Println("you are on the first page")
 		return nil
@@ -221,7 +226,7 @@ func commandMapBack(conf *Config, cache *pokeCache.Cache, arg string, pokedex ma
 	return nil
 }
 
-func commandExplore(conf *Config, cache *pokeCache.Cache, arg string, pokedex map[string]int) error {
+func commandExplore(conf *Config, cache *pokeCache.Cache, arg string, pokedex map[string]pokeClient.PokemonDetail) error {
 	if arg == "" {
 		return fmt.Errorf("an area name must be provided")
 	}
@@ -262,7 +267,7 @@ func commandExplore(conf *Config, cache *pokeCache.Cache, arg string, pokedex ma
 	return nil
 }
 
-func commandCatch(conf *Config, cache *pokeCache.Cache, arg string, pokedex map[string]int) error {
+func commandCatch(conf *Config, cache *pokeCache.Cache, arg string, pokedex map[string]pokeClient.PokemonDetail) error {
 	if arg == "" {
 		return fmt.Errorf("a Pokemon name must be provided")
 	}
@@ -300,9 +305,33 @@ func commandCatch(conf *Config, cache *pokeCache.Cache, arg string, pokedex map[
 
 	if attemptValue < successThreshold {
 		fmt.Printf("%s was caught!\n", pokemonData.Name)
-		pokedex[pokemonData.Name]++
+		pokedex[pokemonData.Name] = pokemonData
 	} else {
 		fmt.Printf("%s escaped!\n", pokemonData.Name)
+	}
+
+	return nil
+}
+
+func commandInspect(conf *Config, cache *pokeCache.Cache, arg string, pokedex map[string]pokeClient.PokemonDetail) error {
+	if arg == "" {
+		return fmt.Errorf("a Pokemon name must be provided")
+	}
+	pokemonName := strings.ToLower(arg)
+	if pokemon, ok := pokedex[pokemonName]; ok {
+		fmt.Printf("Name: %s\n", pokemon.Name)
+		fmt.Printf("Height: %d\n", pokemon.Height)
+		fmt.Printf("Weight: %d\n", pokemon.Weight)
+		fmt.Println("Stats:")
+		for _, stat := range pokemon.Stats {
+			fmt.Printf(" - %s: %d\n", stat.Stat.Name, stat.BaseStat)
+		}
+		fmt.Println("Types:")
+		for _, pokeType := range pokemon.Types {
+			fmt.Printf(" - %s\n", pokeType.PokeType.Name)
+		}
+	} else {
+		fmt.Printf("Pokemon %s not found in your Pokedex\n", pokemonName)
 	}
 
 	return nil
